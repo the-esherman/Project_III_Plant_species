@@ -3,6 +3,7 @@
 #------- ### Libraries ### -------
 library(tidyverse)
 library(readxl)
+library(plotly)
 #
 #
 #
@@ -22,6 +23,7 @@ B6_221121 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B6_221121_report.xlsx"
 B7_221123 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B7_221123_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
 B8_221124 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B8_221124_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
 B9_221129 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B9_221129_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+RE1_230822 <- read_xlsx("raw_data/23225_EA-IRMS_RE1_230822_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
 #
 #
 #
@@ -41,6 +43,8 @@ Isotope15N.0 <- B1_230303 %>%
   bind_rows(B7_221123) %>%
   bind_rows(B8_221124) %>%
   bind_rows(B9_221129) %>%
+  mutate(across(Plate, ~as.character(.x))) %>%
+  bind_rows(RE1_230822) %>%
   filter(!is.na(Identifier))
 #
 Isotope15N.1 <- Isotope15N.0 %>%
@@ -58,6 +62,7 @@ Isotope15N.2 <- Isotope15N.1 %>%
                              Species == "Myr" ~ "MYR",
                              Species == "Sal" ~ "SAL",
                              Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
+                             Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
                              TRUE ~ Species)) %>%
   mutate(MP = if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
   mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "Ab" ~ "6",
@@ -69,9 +74,11 @@ Isotope15N.2 <- Isotope15N.1 %>%
                                Species == "JUN" & MP == 4 & Replicate == "1a" ~ "1", # Or 1b?? Check powder against other JUN samples!
                                Species == "JUN" & MP == 4 & Replicate == "1b" ~ NA, # Or 1b?? Check powder against other JUN samples!
                                TRUE ~ Replicate)) %>%
-  mutate(Organ = case_when(Species == "SAL" & MP == 4 & Replicate == 6 & Organ == "veg" ~ "AB",
+  mutate(Organ = case_when(Organ == "veg" ~ "AB", # Species == "SAL" & MP == 4 & Replicate == 6 & 
                            Organ == "Ab" ~ "AB",
                            TRUE ~ Organ)) %>%
+  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "6" ~ "5",
+                               TRUE ~ Replicate)) %>%
   filter(!is.na(Replicate)) %>%
   mutate(Weight_µg = if_else(is.na(`Weight (mg)`), `Weight (µg)`, `Weight (mg)`))
 # Other cases:
@@ -85,20 +92,76 @@ Isotope15N.3 <- Isotope15N.2 %>%
 #
 write_csv(Isotope15N.3, "clean_data/Isotope.csv", na = "NA")
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# • Outlier check ----
 #
-#
+# Fine Roots
 Isotope15N.3 %>%
   mutate(across(c(MP, Replicate), ~as.numeric(.x))) %>%
   filter(Organ == "FR") %>%
   count(Species, MP) %>%
   ggplot(aes(x = MP, y = n)) + geom_point() + facet_wrap(~Species)
 #
+# Coarse Roots
+Isotope15N.3 %>%
+  mutate(across(c(MP, Replicate), ~as.numeric(.x))) %>%
+  filter(Organ == "CR") %>%
+  count(Species, MP) %>%
+  ggplot(aes(x = MP, y = n)) + geom_point() + facet_wrap(~Species)
+#
+# Aboveground shoots
+Isotope15N.3 %>%
+  mutate(across(c(MP, Replicate), ~as.numeric(.x))) %>%
+  filter(Organ == "AB") %>%
+  count(Species, MP) %>%
+  ggplot(aes(x = MP, y = n)) + geom_point() + facet_wrap(~Species)
+#
+# Cleveland dot plot, all d15N values
 dotchart(Isotope15N.3$d15N, 
          main="Cleveland plot - d15N", xlab = "Observed values", 
          pch = 19, color = hcl.colors(12), 
          labels = Isotope15N.3$MP, 
          groups = Isotope15N.3$Replicate,
          gpch = 12, gcolor = 1)
-
-
+#
+# d15N per species
+Isotope15N.d15N_test <- Isotope15N.3 %>%
+  select(1:4, d15N) %>%
+  filter(Species != "SAL" | MP != 3 | Replicate != "1" | Organ != "AB" | d15N <= 200) %>%
+  filter(Species != "COR" | MP != 1 | Replicate != "5" | Organ != "LR" | d15N >= 100) %>%
+  complete(Species, MP, Replicate, Organ) %>%
+  pivot_wider(names_from = Organ, values_from = d15N)
+#
+plot_ly(Isotope15N.d15N_test, x = ~AB, y = ~Species, name = "Aboveground", type = 'scatter', mode = "markers", marker = list(color = "#009E73")) %>% 
+  add_trace(x = ~FR, y = ~Species, name = "Fine roots",type = 'scatter', mode = "markers", marker = list(color = "#E69F00")) %>% 
+  add_trace(x = ~CR, y = ~Species, name = "Coarse roots",type = 'scatter', mode = "markers", marker = list(color = "#CC79A7")) %>% 
+  add_trace(x = ~LR, y = ~Species, name = "Large roots",type = 'scatter', mode = "markers", marker = list(color = "#0072B2")) %>% 
+  layout(title = "Species d15N", xaxis = list(title = "d15N"), margin = list(l = 100))
+#
+# d15N per Measuring period
+plot_ly(Isotope15N.d15N_test, y = ~AB, x = ~MP, name = "Aboveground", type = 'scatter', mode = "markers", marker = list(color = "#009E73")) %>% 
+  add_trace(y = ~FR, x = ~MP, name = "Fine roots",type = 'scatter', mode = "markers", marker = list(color = "#E69F00")) %>% 
+  add_trace(y = ~CR, x = ~MP, name = "Coarse roots",type = 'scatter', mode = "markers", marker = list(color = "#CC79A7")) %>% 
+  add_trace(y = ~LR, x = ~MP, name = "Large roots",type = 'scatter', mode = "markers", marker = list(color = "#0072B2")) %>% 
+  layout(title = "MP d15N", yaxis = list(title = "d15N"), margin = list(l = 100))
 #
