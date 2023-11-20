@@ -94,7 +94,9 @@ write_csv(Isotope15N.3, "clean_data/Isotope.csv", na = "NA")
 
 
 
-
+#
+Isotope15N.3 %>%
+  ggplot(aes(x = MP, y = d15N, color = Organ)) + geom_point() + facet_wrap(~Species)
 
 
 
