@@ -1,9 +1,9 @@
 # Cleaning 15N data
 #
 #------- ### Libraries ### -------
+library(plotly)
 library(tidyverse)
 library(readxl)
-library(plotly)
 #
 #
 #
@@ -24,6 +24,20 @@ B7_221123 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B7_221123_report.xlsx"
 B8_221124 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B8_221124_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
 B9_221129 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B9_221129_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
 RE1_230822 <- read_xlsx("raw_data/23225_EA-IRMS_RE1_230822_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+
+B1_231120 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B1_231120_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+B2_231121 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B2_231121_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+B3_231122 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B3_231122_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+B4_231123 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B4_231123_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+B5_231125 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B5_231125_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+B6_231127 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B6_231127_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+#
+# Comment in [N]
+B6_231127 <- B6_231127 %>% 
+  mutate(Comments = if_else(Identifier == "23319396", `ωN / %`, NA)) %>% 
+  mutate(`ωN / %` = if_else(Identifier == "23319396", NA, `ωN / %`)) %>%
+  mutate(across(`ωN / %`, ~as.numeric(.x)))
+
 #
 #
 #
@@ -43,6 +57,12 @@ Isotope15N.0 <- B1_230303 %>%
   bind_rows(B7_221123) %>%
   bind_rows(B8_221124) %>%
   bind_rows(B9_221129) %>%
+  bind_rows(B1_231120) %>%
+  bind_rows(B2_231121) %>%
+  bind_rows(B3_231122) %>%
+  bind_rows(B4_231123) %>%
+  bind_rows(B5_231125) %>%
+  bind_rows(B6_231127) %>%
   mutate(across(Plate, ~as.character(.x))) %>%
   bind_rows(RE1_230822) %>%
   filter(!is.na(Identifier))
@@ -80,7 +100,7 @@ Isotope15N.2 <- Isotope15N.1 %>%
   mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "6" ~ "5",
                                TRUE ~ Replicate)) %>%
   filter(!is.na(Replicate)) %>%
-  mutate(Weight_µg = if_else(is.na(`Weight (mg)`), `Weight (µg)`, `Weight (mg)`))
+  mutate(Weight_µg = if_else(is.na(`Weight (mg)`), if_else(is.na(`Weight (µg)`), `Weight`, `Weight (µg)`), `Weight (mg)`))
 # Other cases:
 # VIT_1_3 CR or SOI_1_1 CR?
 #
