@@ -68,6 +68,7 @@ Isotope15N.0 <- B1_230303 %>%
   filter(!is.na(Identifier))
 #
 Isotope15N.1 <- Isotope15N.0 %>%
+  mutate(Sample = str_replace_all(Sample, "-", "_")) %>%
   separate_wider_delim(Sample, delim = " ", names = c("Type", "Organ1"), too_few = "debug", too_many = "debug") %>%
   separate_wider_delim(Type, delim = "_", names = c("Species", "MP", "Replicate", "Organ"), too_few = "debug", too_many = "debug") %>%
   filter(Species != "V",
@@ -77,10 +78,17 @@ Isotope15N.1 <- Isotope15N.0 %>%
 #
 Isotope15N.2 <- Isotope15N.1 %>%
   filter(Species != "Unknown") %>%
-  mutate(Species = case_when(Species == "Cass" ~ "CAS",
+  mutate(Species = case_when(Species == "Cass" | Species == "Cas" ~ "CAS",
                              Species == "Emp" ~ "EMP",
+                             Species == "Loi" ~ "LOI",
+                             Species == "Vit" ~ "VIT",
                              Species == "Myr" ~ "MYR",
+                             Species == "Uli" ~ "ULI",
                              Species == "Sal" ~ "SAL",
+                             Species == "Des" ~ "DES",
+                             Species == "Jun" ~ "JUN",
+                             Species == "Rub" ~ "RUB",
+                             Species == "Cor" ~ "COR",
                              Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
                              Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
                              TRUE ~ Species)) %>%
@@ -142,21 +150,21 @@ Isotope15N.3 %>%
   mutate(across(c(MP, Replicate), ~as.numeric(.x))) %>%
   filter(Organ == "FR") %>%
   count(Species, MP) %>%
-  ggplot(aes(x = MP, y = n)) + geom_point() + facet_wrap(~Species)
+  ggplot(aes(x = MP, y = n)) + geom_point() + facet_wrap(~Species) + labs(title = "Fine roots")
 #
 # Coarse Roots
 Isotope15N.3 %>%
   mutate(across(c(MP, Replicate), ~as.numeric(.x))) %>%
   filter(Organ == "CR") %>%
   count(Species, MP) %>%
-  ggplot(aes(x = MP, y = n)) + geom_point() + facet_wrap(~Species)
+  ggplot(aes(x = MP, y = n)) + geom_point() + facet_wrap(~Species) + labs(title = "Coarse roots")
 #
 # Aboveground shoots
 Isotope15N.3 %>%
   mutate(across(c(MP, Replicate), ~as.numeric(.x))) %>%
   filter(Organ == "AB") %>%
   count(Species, MP) %>%
-  ggplot(aes(x = MP, y = n)) + geom_point() + facet_wrap(~Species)
+  ggplot(aes(x = MP, y = n)) + geom_point() + facet_wrap(~Species) + labs(title = "Aboveground shoots")
 #
 # Cleveland dot plot, all d15N values
 dotchart(Isotope15N.3$d15N, 
