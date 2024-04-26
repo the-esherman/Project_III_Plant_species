@@ -7,5 +7,12 @@
 # Raw data
 raw_data/*
 
+# Images and exported data
+images/*
+export/*
+
+# Removed code
+R_code/Removed_code.R
+
 # Clean data
 clean_data/*
