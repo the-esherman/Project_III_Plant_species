@@ -9,63 +9,256 @@ library(readxl)
 #
 #------- ### Load data ### -------
 #
-B1_230303 <- read_xlsx("raw_data/23123_EA-IRMS_EmilA_B1_230303_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B2_230308 <- read_xlsx("raw_data/23123_EA-IRMS_EmilA_B2_230308_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B3_230310 <- read_xlsx("raw_data/23123_EA-IRMS_EmilA_B3_230310_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B1_230317 <- read_xlsx("raw_data/23150_EA-IRMS_EmilA_B1_230317_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B2_230320 <- read_xlsx("raw_data/23150_EA-IRMS_EmilA_B2_230320_report2.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B1_221110 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B1_221110_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B2_221111 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B2_221111_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B3_221114 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B3_221114_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B4_221115 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B4_221115_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B5_221117 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B5_221117_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B6_221121 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B6_221121_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B7_221123 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B7_221123_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B8_221124 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B8_221124_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B9_221129 <- read_xlsx("raw_data/22304_EA-IRMS_EmilA_Niki_B9_221129_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-RE1_230822 <- read_xlsx("raw_data/23225_EA-IRMS_RE1_230822_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-
-B1_231120 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B1_231120_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B2_231121 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B2_231121_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B3_231122 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B3_231122_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B4_231123 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B4_231123_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B5_231125 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B5_231125_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
-B6_231127 <- read_xlsx("raw_data/23319_EA-IRMS_EmilA_B6_231127_report.xlsx", sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+# Load IRMS data in one long list and combine
+IRMS_path <- "raw_data/IRMS/"
+IRMS_folder <- dir(IRMS_path)
+IRMS_list <- list()
 #
-# Comment in [N]
-B6_231127 <- B6_231127 %>% 
-  mutate(Comments = if_else(Identifier == "23319396", `ωN / %`, NA)) %>% 
-  mutate(`ωN / %` = if_else(Identifier == "23319396", NA, `ωN / %`)) %>%
+# Loop through each file
+for (file in IRMS_folder){
+  
+  # Load data: all IRMS data from plants
+  IRMS_data <- read_xlsx(paste(IRMS_path, file, sep = ""), sheet = "2. Final results", skip = 37, col_names = TRUE, na = "NA")
+  
+  # Add file id to new column
+  IRMS_data$id <- str_extract(file, "[BR][E0123456789]+_\\d+")
+  
+  IRMS_data$Plate <- as.character(IRMS_data$Plate)
+  
+  # Name each file uniquely, based on filename. Add to list
+  IRMS_list[[paste("IRMS", str_extract(file, "[BR][E0123456789]+_\\d+"), sep = "_")]] <- IRMS_data
+  
+  # Remove temp file
+  rm(IRMS_data)
+}
+#
+# Remove two samples with unknown weights
+IRMS_list$IRMS_B1_240214 <- IRMS_list$IRMS_B1_240214 %>%
+  filter(`Weight (mg)` != "?") %>%
+  mutate(across(c(`Weight (mg)`, `ωN / %`), ~as.numeric(.x)))
+#
+# Remove one sample with too little material
+IRMS_list$IRMS_B6_231127 <- IRMS_list$IRMS_B6_231127 %>%
+  filter(`Weight (mg)` >= 0.1) %>%
   mutate(across(`ωN / %`, ~as.numeric(.x)))
-
+#
+# Combine into one file
+IRMS_all <- do.call(bind_rows, IRMS_list)
 #
 #
 #
 #------- ## Combine and clean ## -------
 #
-Isotope15N.0 <- B1_230303 %>%
-  bind_rows(B2_230308) %>%
-  bind_rows(B3_230310) %>%
-  bind_rows(B1_230317) %>%
-  bind_rows(B2_230320) %>%
-  bind_rows(B1_221110) %>%
-  bind_rows(B2_221111) %>%
-  bind_rows(B3_221114) %>%
-  bind_rows(B4_221115) %>%
-  bind_rows(B5_221117) %>%
-  bind_rows(B6_221121) %>%
-  bind_rows(B7_221123) %>%
-  bind_rows(B8_221124) %>%
-  bind_rows(B9_221129) %>%
-  bind_rows(B1_231120) %>%
-  bind_rows(B2_231121) %>%
-  bind_rows(B3_231122) %>%
-  bind_rows(B4_231123) %>%
-  bind_rows(B5_231125) %>%
-  bind_rows(B6_231127) %>%
-  mutate(across(Plate, ~as.character(.x))) %>%
-  bind_rows(RE1_230822) %>%
-  filter(!is.na(Identifier))
+# 
+IRMS_all.1 <- IRMS_all %>%
+  # Remove the blank lines
+  filter(!is.na(Identifier)) %>%
+  #
+  # Unify weight in same unit (µg) and in the same column
+  mutate(weight_µg = case_when(!is.na(`Weight (µg)`) & is.na(`Weight (mg)`) & is.na(Weight) ~ `Weight (µg)`,
+                               is.na(`Weight (µg)`) & !is.na(`Weight (mg)`) & is.na(Weight) & `Weight (mg)` <= 100 ~ `Weight (mg)`*1000,
+                               is.na(`Weight (µg)`) & !is.na(`Weight (mg)`) & is.na(Weight) & `Weight (mg)` >= 100 ~ `Weight (mg)`,
+                               is.na(`Weight (µg)`) & is.na(`Weight (mg)`) & !is.na(Weight) ~ Weight)) %>%
+  relocate(weight_µg, .before = `Sample type`) %>%
+  select(!c(Plate, Well, `Sample type`, Analysis, Comments, `Other comments`, ...12, `ωC / %`, `d13C / ‰`, `FC / %`, ...16, `C/N ratio`, `Weight (µg)`, `Weight (mg)`, Weight)) %>%
+  #
+  # Separate ID into Species, MP, Replicate, and Organ
+  mutate(Sample = str_replace_all(Sample, "-", "_")) %>%
+  separate_wider_delim(Sample, delim = " ", names = c("Type", "Organ1"), too_few = "debug", too_many = "debug") %>%
+  separate_wider_delim(Type, delim = "_", names = c("Species", "MP", "Replicate", "Organ"), too_few = "debug", too_many = "debug") %>%
+  # 
+  # Remove samples from winterecology 1
+  filter(Species != "V",
+         Species != "A") %>%
+  mutate(Organ = if_else(is.na(Organ), Organ1, Organ)) %>%
+  select(!c(Type_remainder, Organ1)) %>%
+  #
+  # Rename variables for easier use in R
+  rename("Nconc_pc" = `ωN / %`,
+         "d15N" = `d15N / ‰`,
+         "Atom_pc" = `FN / %`)
+#
+# Go through cases
+IRMS_all.2 <- IRMS_all.1 %>%
+  # Unknown species are unhelpful
+  filter(Species != "Unknown") %>%
+  #
+  # Standardize species names and ensure the right species is given
+  mutate(Species = case_when(Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
+                             Species == "Emp" ~ "EMP",
+                             Species == "Loi" ~ "LOI",
+                             Species == "Vit" ~ "VIT",
+                             Species == "Myr" ~ "MYR",
+                             Species == "Uli" ~ "ULI",
+                             Species == "Sal" ~ "SAL",
+                             Species == "Des" ~ "DES",
+                             Species == "Jun" ~ "JUN",
+                             Species == "Rub" ~ "RUB",
+                             Species == "Cor" ~ "COR",
+                             Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
+                             Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
+                             TRUE ~ Species)) %>%
+  #
+  # Ensure the rounds are correct
+  mutate(MP = case_when(Species == "SAL" & MP == 6 & Replicate == "Ab" ~ "4",
+                        Species == "LOI" & MP == 64 ~ "6", # No space between MP and replicate messed up split
+                        TRUE ~ MP)) %>%
+          # if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
+  #
+  # Ensure the replicates are correct, or at least that there are duplicates
+  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "Ab" ~ "6",
+                               Species == "SOI" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
+                               Species == "SOI" & MP == 3 & Replicate == "5b" ~ NA, # Or 5b?? The other 1-4 exist for CR
+                               Species == "VIT" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
+                               Species == "VIT" & MP == 3 & Replicate == "5b" ~ NA, # Or 2b?? The other 1-4 exist for CR
+                               Species == "VIT" & MP == 4 & Replicate == "2?" ~ NA, # Already exist a 2 for AB
+                               Species == "JUN" & MP == 4 & Replicate == "1a" ~ "1", # Or 1b?? Check powder against other JUN samples!
+                               Species == "JUN" & MP == 4 & Replicate == "1b" ~ NA, # Or 1b?? Check powder against other JUN samples!
+                               Species == "LOI" & MP == 6 & Replicate == "AB" ~ "4", # No space between MP and replicate messed up split
+                               Species == "SAL" & MP == 3 & Replicate == "1" & weight_µg == 5165 ~ "2",
+                               Organ == "FR(2)" ~ NA, # Remove extra (?) fine root sample from ULI_5_3
+                               TRUE ~ Replicate)) %>%
+  #
+  # Standarize name of organ part
+  mutate(Organ = case_when(Organ == "veg" ~ "AB", # Species == "SAL" & MP == 4 & Replicate == 6 & 
+                           Organ == "Ab" ~ "AB",
+                           Species == "LOI" & MP == 6 & Replicate == 4 & is.na(Organ) ~ "AB", # No space between MP and replicate messed up spli 
+                           TRUE ~ Organ)) %>%
+  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "6" ~ "5",
+                               TRUE ~ Replicate)) %>%
+  filter(!is.na(Replicate))
+
+
+
+
+IRMS_all.2 %>%
+  filter(MP != "C") %>%
+  ggplot(aes(x = Organ)) + geom_bar() + facet_wrap(~Species + MP)
+
+IRMS_all.2 %>%
+  filter(MP == "C") %>%
+  ggplot(aes(x = Organ)) + geom_bar() + facet_wrap(~Species + Replicate)
+
+
+
+IRMS_all.export.control <- IRMS_all.2 %>%
+  filter(MP == "C") %>%
+  select(c(Species, MP, Replicate, Organ, weight_µg, Nconc_pc, d15N, Atom_pc)) %>%
+  complete(Species, MP, Replicate, Organ)
+
+IRMS_all.export <- IRMS_all.2 %>%
+  filter(MP != "C") %>%
+  select(c(Species, MP, Replicate, Organ, weight_µg, Nconc_pc, d15N, Atom_pc)) %>%
+  complete(Species, MP, Replicate, Organ)
+
+
+
+biomass <- read_xlsx("raw_data/GardenExperiment1_EA_DryWeights_202204-202308.xlsx", col_names = TRUE, na = "NA")
+
+biomass.1 <- biomass %>%
+  select(!Comments) %>%
+  rename("MP" = Measurementperiod,
+         "AB" = DWAbovegroundBiomass_g,
+         "FR" = DWFineRoots_g,
+         "CR" = DWCoarseRoots_g,
+         "LR" = DWLargeRoots_g) %>%
+  mutate(across(c(MP, Replicate), ~as.character(.x))) %>%
+  mutate(Species = case_when(Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
+                             Species == "Emp" ~ "EMP",
+                             Species == "Loi" ~ "LOI",
+                             Species == "Vit" ~ "VIT",
+                             Species == "Myr" ~ "MYR",
+                             Species == "Uli" ~ "ULI",
+                             Species == "Sal" ~ "SAL",
+                             Species == "Des" ~ "DES",
+                             Species == "Jun" ~ "JUN",
+                             Species == "Rub" ~ "RUB",
+                             Species == "Cor" ~ "COR",
+                             Species == "Soil" ~ "SOI",
+                             TRUE ~ Species)) %>%
+  pivot_longer(cols = 5:8, names_to = "Organ", values_to = "Biomass_g")
+
+#
+biomass.control <- read_xlsx("raw_data/Field and Lab sheets_Control harvest_EA.xlsx", sheet = 8, skip = 1, col_names = TRUE, na = "NA")
+
+biomass.control.1 <- biomass.control %>%
+  rename("Species" = SP,
+         "Replicate" = Box,
+         "FR" = `Fine roots`,
+         "CR" = `Coarse roots`,
+         "LR" = `Large roots`) %>%
+  mutate(Species = case_when(Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
+                             Species == "Emp" ~ "EMP",
+                             Species == "Loi" ~ "LOI",
+                             Species == "Vit" ~ "VIT",
+                             Species == "Myr" ~ "MYR",
+                             Species == "Uli" ~ "ULI",
+                             Species == "Sal" ~ "SAL",
+                             Species == "Des" ~ "DES",
+                             Species == "Jun" ~ "JUN",
+                             Species == "Rub" ~ "RUB",
+                             Species == "Cor" ~ "COR",
+                             Species == "Soil" ~ "SOI",
+                             TRUE ~ Species)) %>%
+  select(!c(Researcher, `Green moss (without bag)`, `Birch leaves`, `Brown moss + litter`, ...11, ...12)) %>%
+  pivot_longer(cols = 4:6, names_to = "Organ", values_to = "Biomass_g")
+
+
+
+# Samples where there is enough biomass, but no measurements
+x <- left_join(IRMS_all.export, biomass.1, by = join_by(Species, MP, Replicate, Organ)) %>%
+  filter(is.na(weight_µg) & !is.na(Biomass_g)) %>%
+  filter(Biomass_g >= 0.5)
+
+
+y <- x %>%
+  select(1:4, Biomass_g)
+
+xx <- left_join(IRMS_all.export.control, biomass.control.1, by = join_by(Species, MP, Replicate, Organ)) %>%
+  filter(is.na(weight_µg) & !is.na(Biomass_g)) %>%
+  filter(Biomass_g >= 0.5)
+
+yy <- xx %>%
+  select(1:4, Biomass_g)
+
+
+yy %>%
+  ggplot(aes(x = Organ, y = Replicate)) + geom_jitter() + facet_wrap(~Species)
+
+
+#
+#
+
+
+
+write_csv2(y, "export/Missing_15N_2.csv", na = "NA")
+write_csv2(yy, "export/Missing_15N_control_2.csv", na = "NA")
+
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #
 Isotope15N.1 <- Isotope15N.0 %>%
   mutate(Sample = str_replace_all(Sample, "-", "_")) %>%
