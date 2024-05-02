@@ -49,7 +49,7 @@ IRMS_all <- do.call(bind_rows, IRMS_list)
 #
 #------- ## Combine and clean ## -------
 #
-# 
+# Clean naming to standard
 IRMS_all.1 <- IRMS_all %>%
   # Remove the blank lines
   filter(!is.na(Identifier)) %>%
@@ -78,7 +78,7 @@ IRMS_all.1 <- IRMS_all %>%
          "d15N" = `d15N / ‰`,
          "Atom_pc" = `FN / %`)
 #
-# Go through cases
+# Go through cases to clean mistakes and unify naming scheme
 IRMS_all.2 <- IRMS_all.1 %>%
   # Unknown species are unhelpful
   filter(Species != "Unknown") %>%
@@ -120,13 +120,51 @@ IRMS_all.2 <- IRMS_all.1 %>%
                                TRUE ~ Replicate)) %>%
   #
   # Standarize name of organ part
+  # Control samples are a mix of belowground organs and should as such simply be called BG
   mutate(Organ = case_when(Organ == "veg" ~ "AB", # Species == "SAL" & MP == 4 & Replicate == 6 & 
                            Organ == "Ab" ~ "AB",
-                           Species == "LOI" & MP == 6 & Replicate == 4 & is.na(Organ) ~ "AB", # No space between MP and replicate messed up spli 
+                           Species == "LOI" & MP == 6 & Replicate == 4 & is.na(Organ) ~ "AB", # No space between MP and replicate messed up split
+                           Organ == "FR+CR" ~ "BG",
+                           Organ == "FR+CR+LR" ~ "BG+",
                            TRUE ~ Organ)) %>%
   mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "6" ~ "5",
                                TRUE ~ Replicate)) %>%
   filter(!is.na(Replicate))
+#
+# As the setup of controls are different from the rest of the samples, they are split
+# Control values
+IRMS_all.export.control <- IRMS_all.2 %>%
+  filter(MP == "C") %>%
+  select(c(Species, MP, Replicate, Organ, weight_µg, Nconc_pc, d15N, Atom_pc)) %>%
+  complete(Species, MP, Replicate, Organ) %>%
+  # There are 3 (three) cases of two species where the samples are not combined, but split in FR and CR (MYR_C_A) or there simply is only FR (DES_C_E) or LR is split from FR+CR (MYR_C_C)
+  # keep only these as FR, CR, and LR
+  filter(Organ == "BG" | Organ == "BG+" | Organ == "FR" & !is.na(weight_µg) | Organ == "CR" & !is.na(weight_µg) | Organ == "LR" & !is.na(weight_µg))
+#
+# Rest
+IRMS_all.export.samples <- IRMS_all.2 %>%
+  filter(MP != "C") %>%
+  select(c(Species, MP, Replicate, Organ, weight_µg, Nconc_pc, d15N, Atom_pc)) %>%
+  complete(Species, MP, Replicate, Organ)
+#
+# Combine
+IRMS_all.export <- bind_rows(IRMS_all.export.samples, IRMS_all.export.control) %>%
+  rename("species" = Species,
+         "measuringPeriod" = MP,
+         "replicate" = Replicate,
+         "organ" = Organ,
+         "sample_weight" = weight_µg,
+         "nitrogen_content" = Nconc_pc,
+         "delta_nitrogen_15" = d15N,
+         "atom_nitrogen_15" = Atom_pc)
+#
+# Save as CSV
+write_csv(IRMS_all.export, "export/GardenExperiment1_EA_IRMS.csv", na = "NA")
+
+
+
+
+
 
 
 
@@ -141,15 +179,7 @@ IRMS_all.2 %>%
 
 
 
-IRMS_all.export.control <- IRMS_all.2 %>%
-  filter(MP == "C") %>%
-  select(c(Species, MP, Replicate, Organ, weight_µg, Nconc_pc, d15N, Atom_pc)) %>%
-  complete(Species, MP, Replicate, Organ)
 
-IRMS_all.export <- IRMS_all.2 %>%
-  filter(MP != "C") %>%
-  select(c(Species, MP, Replicate, Organ, weight_µg, Nconc_pc, d15N, Atom_pc)) %>%
-  complete(Species, MP, Replicate, Organ)
 
 
 
