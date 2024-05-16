@@ -47,6 +47,38 @@ IRMS_all <- do.call(bind_rows, IRMS_list)
 #
 #
 #
+# ------- # Extractions # -------
+#
+# Extraction data is all in the same format
+extr_header <- c("Sample_nr", "Plate", "Well", "Sample_code", "SE_or_SEF", "Comments", "c1", "c2", "c3", "c4", 
+                 "c5", "c6", "c7", "H2O", "Freeze_dry_ml", "Freeze_dry2", "Soil_FW_g", "Soil_DW_g", "SW_ml", "Sample_number", 
+                 "Name", "Height_N_nA", "N15", "Height_C_nA", "C13", "Weight", "PEAnA_N", "PEA15N", "PEAnA_C", "PEA13C", 
+                 "gnsnSTD_N_weight", "gnsnSTD_C_weight", "1nA_to_mgN_STD", "1nA_to_mgC", "Sample_N_mg", "Sample_C_mg", "Extr_N_mg", "Extr_C_mg", "Soil_N_IRMS", "Soil_C_IRMS", 
+                 "%N_peach", "%C_peach", "C_N_ratio", "d15N_korr", "AP_NatAbu_15N", "AP_15N", "APE_N", "c8", "Soil_15N", "15N_in_N", 
+                 "d13C_korr")
+extr_type <- c("numeric", "text", "text", "text", "text", "text", "text", "text", "text", "text", 
+               "text", "text", "text", "text", "text", "text", "text", "text", "text", "numeric", 
+               "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+               "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+               "numeric","numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+               "numeric")
+#
+# Load extraction files
+Extr_32 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray32_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_33 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray33_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_34 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray34_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_35 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray35_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_36 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray36_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_37 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray37_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_38 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray38_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_39_40_41 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray39_40_41_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+#
+# Combine extraction datasets
+extractions <- bind_rows(list(Extr_32, Extr_33, Extr_34, Extr_35, Extr_36, Extr_37, Extr_38, Extr_39_40_41), .id = "Raw")
+
+#
+#
+#
 #------- ## Combine and clean ## -------
 #
 # Clean naming to standard
