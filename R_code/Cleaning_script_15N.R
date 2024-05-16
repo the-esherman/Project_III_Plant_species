@@ -77,6 +77,45 @@ Extr_39_40_41 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray39_40_41_FINAL
 extractions <- bind_rows(list(Extr_32, Extr_33, Extr_34, Extr_35, Extr_36, Extr_37, Extr_38, Extr_39_40_41), .id = "Raw")
 
 #
+# Remove unnecessary columns and rows
+extractions.1 <- extractions %>%
+  select(1:6, 23:37) %>%
+  filter(!is.na(Sample_nr)) %>%
+  mutate(Raw = case_when(Raw == "1" ~ "extr32",
+                         Raw == "2" ~ "extr33",
+                         Raw == "3" ~ "extr34",
+                         Raw == "4" ~ "extr35",
+                         Raw == "5" ~ "extr36",
+                         Raw == "6" ~ "extr37",
+                         Raw == "7" ~ "extr38",
+                         Raw == "9" ~ "extr39_40_41"))
+#
+#
+extractions.2 <- extractions.1 %>%
+  mutate(Sample_code = case_when(Sample_code == "NA" & Plate == "33" & Well == "E3" ~ "Vit_6_2",
+                                 Sample_code == "NA" & Plate == "33" & Well == "H4" ~ "Des_6_5",
+                                 TRUE ~ Sample_code)) %>%
+  mutate(Sample_code = str_replace_all(Sample_code, "-|\\.", "_")) %>%
+  separate_wider_delim(Sample_code, delim = "_", names = c("Species", "MP", "Replicate"), too_few = "debug", too_many = "debug") %>%
+  #
+  # Standardize species names and ensure the right species is given
+  mutate(Species = case_when(Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
+                             Species == "Emp" ~ "EMP",
+                             Species == "Loi" ~ "LOI",
+                             Species == "Vit" ~ "VIT",
+                             Species == "Myr" ~ "MYR",
+                             Species == "Uli" ~ "ULI",
+                             Species == "Sal" ~ "SAL",
+                             Species == "Des" ~ "DES",
+                             Species == "Jun" ~ "JUN",
+                             Species == "Rub" ~ "RUB",
+                             Species == "Cor" ~ "COR",
+                             Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
+                             #Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
+                             TRUE ~ Species))
+
+
+#
 #
 #
 #------- ## Combine and clean ## -------
