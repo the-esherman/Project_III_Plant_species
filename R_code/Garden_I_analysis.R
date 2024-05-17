@@ -1,5 +1,7 @@
-# Analysis
-# By Emil A.S. Andersen
+# Garden Experiment 1
+# Script author: Emil A.S. Andersen
+#
+# Main analysis of 15N data and statistics
 # 
 #=======  ♣   Libraries     ♣ =======
 library(plyr)

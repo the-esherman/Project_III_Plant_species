@@ -1,4 +1,7 @@
+# Garden Experiment 1
+# Script author: Emil A.S. Andersen
 #
+# Quick analysis of data
 #
 #------- ### Libraries ### -------
 library(tidyverse)

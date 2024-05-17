@@ -1,4 +1,8 @@
+# Garden Experiment 1
+# Script author: Emil A.S. Andersen
+#
 # Cleaning 15N data
+# 15N data from plant samples and 15N data from soil extractions
 #
 #------- ### Libraries ### -------
 library(plotly)

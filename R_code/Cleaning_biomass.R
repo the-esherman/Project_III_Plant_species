@@ -1,6 +1,9 @@
-# Cleaning and collecting data
-# Garden experiment I
-
+# Garden Experiment 1
+# Script author: Emil A.S. Andersen
+#
+# Cleaning and collecting biomass data
+#
+#
 #------- ### Libraries ### -------
 library(tidyverse)
 library(readxl)
