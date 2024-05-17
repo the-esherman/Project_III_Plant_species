@@ -17,6 +17,19 @@ library(cowplot)
 #
 # Biomass
 Biomass <- read_csv("clean_data/GardenExperiment1_EA_DryWeights_202204-202308.csv", col_names = TRUE)
+Biomass <- Biomass %>%
+  rename("species" = Species,
+         "measuringPeriod" = Measurementperiod,
+         "replicate" = Replicate,
+         "AB" = DWAbovegroundBiomass_g,
+         "CR" = DWCoarseRoots_g,
+         "FR" = DWFineRoots_g,
+         "LR" = DWtLargeRoots_g) %>%
+  mutate(species = if_else(species == "SOIL", "SOI", species),
+         across(c(measuringPeriod, replicate), ~ as.character(.x))) %>%
+  filter(!is.na(species)) %>%
+  select(!Comments) %>%
+  pivot_longer(4:7, names_to = "organ", values_to = "biomass")
 #
 # Environmental data
 # Air and soil temperature and soil moisture
@@ -25,8 +38,21 @@ SoilAirT <- read_csv("clean_data/GardenExperiment1_EA_SoilairtemperatureVWC_2021
 #
 # 15N data
 IRMS <- read_csv("clean_data/GardenExperiment1_EA_IRMS.csv", col_names = TRUE)
+# Separate control and labelled
+# Control or natural abundance
+IRMS_control <- IRMS %>%
+  filter(measuringPeriod == "C")
+#
+# Labelled
+IRMS_15N <- IRMS %>%
+  filter(measuringPeriod != "C")
 
 
+# Constants
+#
+# Extraction correction factor
+K_EN = 0.4
+# See https://climexhandbook.w.uib.no/2019/11/06/soil-microbial-biomass-c-n-and-p/ and UCPH bio lab protocol (where K_EN = 0.4)
 #
 #
 #
@@ -73,6 +99,50 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
 #
 #
 #=======  ♦   Main data     ♦ =======
+#
+# Label atomic data
+# Added 15N; mg 15N pr pot
+# This is from WinterEcology I, and matches almost the 15N load on the pots, but will need to be adjusted per pot per measuring period
+# Added 15N; mg 15N pr patch
+N_add <- 1.084
+Label_15F <- 0.987
+Label_atom_pc <- Label_15F*100
+#
+Label_atom_pc <- 0.987 # 98.7% double labelled 15N-NH4NO3
+Atom_mass_14N_NH4NO3 <- 2*14.007+4*1.008+3*15.999 # The atomic mass of 14N NH4NO3
+Atom_mass_15N_NH4NO3 <- 2*15+4*1.008+3*15.999 # The atomic mass of double 15N NH4NO3
+
+#(2*15*Label_atom_pc)/(2*14.007*(1-Label_atom_pc)+2*15*Label_atom_pc+4*1.008+3*15.999)
+
+Label_15N_frac <- (2*15*Label_atom_pc)/(Atom_mass_14N_NH4NO3*(1-Label_atom_pc)+Atom_mass_15N_NH4NO3*Label_atom_pc) # The atom mass of the 15N to the total label NH4NO3
+Label_N_frac <- (2*15*Label_atom_pc+2*14*(1-Label_atom_pc))/(Atom_mass_14N_NH4NO3*(1-Label_atom_pc)+Atom_mass_15N_NH4NO3*Label_atom_pc)
+# In the numerator: 2 15N per molecule, but only 98.7%
+# In the denominator: The molecule's average mass, as 14N NH4NO3 is 1.3% and 15N NH4NO3 is 98.7%
+#
+#
+# Calculate natural abundance from control samples
+IRMS_control_sum <- IRMS_control %>%
+  group_by(species) %>%
+  summarise(#delta_nitrogen_15 = mean(delta_nitrogen_15, na.rm = TRUE), # Unnecessary, used to calculate average of atom%
+            natAb_atom_nitrogen_15 = mean(atom_nitrogen_15, na.rm = TRUE)) #%>%
+  #mutate(natAb_atom_pc = 100/(1+272/(1+delta_nitrogen_15/1000))) %>% # gives almost the same as simply averaging the atom%
+#
+# Combine biomass data with 15N data to calculate recovery
+vegroot15N <- left_join(IRMS_15N, Biomass, by = join_by(species, measuringPeriod, replicate, organ)) %>%
+  relocate(biomass, .after = organ) %>%
+  # Add natural abundance data per species
+  left_join(IRMS_control_sum, by = join_by(species)) %>%
+  # Calculate recovery
+  mutate(recovery = ((atom_nitrogen_15 - natAb_atom_nitrogen_15)/100 * nitrogen_content/100 * biomass)/(N_add/1000) * 100) %>%
+  mutate(recovery = if_else(recovery < 0, 0, recovery))
+#
+# Calculate recovery for entire plant
+vegroot15N_total_Plant <- vegroot15N %>%
+  group_by(across(c("species", "measuringPeriod", "replicate"))) %>%
+  summarise(plantRecovery = sum(recovery, na.rm = TRUE), .groups = "keep") %>%
+  ungroup()
+
+
 
 #
 #
