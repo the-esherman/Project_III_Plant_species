@@ -99,7 +99,8 @@ extractions.2 <- extractions.1 %>%
   separate_wider_delim(Sample_code, delim = "_", names = c("Species", "MP", "Replicate"), too_few = "debug", too_many = "debug") %>%
   #
   # Standardize species names and ensure the right species is given
-  mutate(Species = case_when(Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
+  mutate(Species = case_when(Species == "blank" ~ "Blank",
+                             Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
                              Species == "Emp" ~ "EMP",
                              Species == "Loi" ~ "LOI",
                              Species == "Vit" ~ "VIT",
@@ -111,8 +112,39 @@ extractions.2 <- extractions.1 %>%
                              Species == "Rub" ~ "RUB",
                              Species == "Cor" ~ "COR",
                              Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
-                             #Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
-                             TRUE ~ Species))
+                             Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
+                             TRUE ~ Species)) %>%
+  #
+  # Ensure the rounds are correct
+  # mutate(MP = case_when(Species == "LOI" & MP == 64 ~ "6", # No space between MP and replicate messed up split
+  #                       TRUE ~ MP)) %>%
+  # if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
+  #
+  # Ensure the replicates are correct, or at least that there are duplicates
+  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "Ab" ~ "6",
+                               Species == "SOI" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
+                               Species == "SOI" & MP == 3 & Replicate == "5b" ~ NA, # Or 5b?? The other 1-4 exist for CR
+                               Species == "VIT" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
+                               Species == "VIT" & MP == 3 & Replicate == "5b" ~ NA, # Or 2b?? The other 1-4 exist for CR
+                               Species == "VIT" & MP == 4 & Replicate == "2?" ~ NA, # Already exist a 2 for AB
+                               Species == "JUN" & MP == 4 & Replicate == "1a" ~ "1", # Or 1b?? Check powder against other JUN samples!
+                               Species == "JUN" & MP == 4 & Replicate == "1b" ~ NA, # Or 1b?? Check powder against other JUN samples!
+                               Species == "LOI" & MP == 6 & Replicate == "AB" ~ "4", # No space between MP and replicate messed up split
+                               Species == "SAL" & MP == 3 & Replicate == "1" & weight_µg == 5165 ~ "2",
+                               Organ == "FR(2)" ~ NA, # Remove extra (?) fine root sample from ULI_5_3
+                               TRUE ~ Replicate)) %>%
+  #
+  # Standarize name of organ part
+  # Control samples are a mix of belowground organs and should as such simply be called BG
+  mutate(Organ = case_when(Organ == "veg" ~ "AB", # Species == "SAL" & MP == 4 & Replicate == 6 & 
+                           Organ == "Ab" ~ "AB",
+                           Species == "LOI" & MP == 6 & Replicate == 4 & is.na(Organ) ~ "AB", # No space between MP and replicate messed up split
+                           Organ == "FR+CR" ~ "BG",
+                           Organ == "FR+CR+LR" ~ "BG+",
+                           TRUE ~ Organ)) %>%
+  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "6" ~ "5",
+                               TRUE ~ Replicate)) %>%
+  filter(!is.na(Replicate))
 
 
 #
