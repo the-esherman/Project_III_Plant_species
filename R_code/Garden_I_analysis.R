@@ -221,6 +221,114 @@ VWC_plot <- SoilAirT %>%
 #
 #-------  ♪   Recovery      ♪ -------
 
+# Plant recovery
+# Sum
+vegroot15N_total_Plant_sum <- summarySE(vegroot15N_total_Plant, measurevar="plantRecovery", groupvars=c("species", "measuringPeriod"))
+#
+# Plot
+vegroot15N_total_Plant_sum %>%  
+  ggplot() + 
+  #geom_rect(data=data.frame(variable=factor(1)), aes(xmin=winterP2$wstart, xmax=winterP2$wend, ymin=-Inf, ymax=Inf), alpha = 0.5, fill = 'grey', inherit.aes = FALSE) +
+  geom_errorbar(aes(x = measuringPeriod, y = plantRecovery, ymin=plantRecovery, ymax=plantRecovery+ci), position=position_dodge(.9)) +
+  #geom_point(aes(Round, plantRecovery)) +
+  geom_col(aes(measuringPeriod, plantRecovery), color = "black") +
+  coord_cartesian(ylim=c(0,30)) +
+  #scale_x_discrete(labels = measuringPeriod) +
+  facet_wrap( ~ species, ncol = 4, scales = "free") + 
+  labs(x = "Measuring period (MP)", y = expression("% of added "*{}^15*"N"), title = expression("Plant "*{}^15*"N tracer recovery")) +
+  theme_classic(base_size = 20) +
+  theme(panel.spacing = unit(2, "lines"),axis.text.x=element_text(angle=60, hjust=1))
+#
+#
+
+vegroot15N %>%
+  distinct()
+
+
+# Plant recovery per organ
+vegroot15N_Organ <- vegroot15N %>%
+  select(species, measuringPeriod, replicate, organ, recovery) %>%
+  group_by(across(c("species","measuringPeriod", "replicate", "organ"))) %>%
+  summarise(organRecovery = sum(recovery, na.rm = TRUE), .groups = "keep") %>%
+  ungroup() #%>%
+  left_join(vegroot15N_total_Plant, by = join_by(Site, Plot, MP, Round)) %>%
+  mutate(across(c("Plot", "MP"), as.character))%>%
+  mutate(across(c("Site", "MP", "Round", "Organ"), as.factor)) %>%
+  select(1:7) %>%
+  mutate(OrganRecovery_ofTotal = OrganRecovery, 
+         OrganRecovery = OrganRecovery/PlantRecovery*100) %>%
+  select(1:5,OrganRecovery)
+#
+# Contrasts
+contrasts(vegroot15N_Organ$Organ) <- Contr_organ
+#
+# transform data
+vegroot15N_Organ <- vegroot15N_Organ %>%
+  mutate(logOrganRecovery = log(OrganRecovery+1), # Good for low percentage values.
+         arcOrganRecovery = asin(sqrt((OrganRecovery)/100))) # Use is for this most transformations in percent.
+
+
+vegroot15N_Organ_sum <- summarySE(vegroot15N_Organ, measurevar = "OrganRecovery", groupvars = c("Site", "Round", "Organ"))
+#
+# Plot
+OrganRec_plot <- vegroot15N_Organ_sum %>%
+  group_by(across(c("Site", "Round", "Organ"))) %>%
+  mutate(OrganRecovery = if_else(Organ == "S", OrganRecovery, -OrganRecovery),
+         ci = if_else(Organ == "S", ci, -ci),
+         avgR_CI = if_else(Organ == "CR", OrganRecovery, 0)) %>%
+  group_by(across(c("Site", "Round"))) %>%
+  mutate(avgR_CI = if_else(Organ == "FR", cumsum(avgR_CI)+OrganRecovery, OrganRecovery)) %>%
+  group_by(across(c("Site", "Round", "Organ"))) %>%
+  # Plot 
+  ggplot() +
+  geom_rect(data=data.frame(variable=factor(1)), aes(xmin=winterP2$wstart, xmax=winterP2$wend, ymin=-Inf, ymax=Inf), alpha = 0.5, fill = 'grey', inherit.aes = FALSE) +
+  geom_col(aes(Round, OrganRecovery, fill = factor(Organ, levels=c("S","FR","CR"))), position = "stack", color = "black") +
+  coord_cartesian(ylim = c(-125,75)) +
+  scale_fill_viridis_d() +
+  geom_errorbar(aes(x = Round, y = OrganRecovery, ymin=avgR_CI, ymax=avgR_CI+ci), position=position_dodge(.9)) +
+  scale_x_discrete(labels = measuringPeriod2) +
+  scale_y_continuous(breaks = c(-125, -100, -75, -50, -25, 0, 25, 50, 75), labels = abs) +
+  #scale_fill_discrete(labels = c("Shoots", "Fine Roots", "Course roots")) +
+  facet_wrap( ~ Site, ncol = 2) + #, scales = "free") + 
+  labs(x = "Measuring period (MP)", y = expression("% of total plant recovered "*{}^15*"N"), title = expression("Plant "*{}^15*"N tracer recovery per organ")) + #guides(x = guide_axis(n.dodge = 2)) + 
+  guides(fill = guide_legend(title = "Plant organ")) +
+  theme_classic(base_size = 20) +
+  theme(panel.spacing = unit(1, "lines"),axis.text.x=element_text(angle=60, hjust=1))
+#
+# Plot for legend (swap Coarse and Fine roots in order, still have to manually change colors)
+OrganRec_plotLegend <- vegroot15N_Organ_sum %>%
+  mutate(Organ = case_when(Organ == "S" ~ "Shoots",
+                           Organ == "CR" ~ "Fine roots", # A bit manipulative!
+                           Organ == "FR" ~ "Coarse roots",
+                           TRUE ~ Organ)) %>%
+  group_by(across(c("Site", "Round", "Organ"))) %>%
+  mutate(OrganRecovery = if_else(Organ == "Shoots", OrganRecovery, -OrganRecovery),
+         ci = if_else(Organ == "Shots", ci, -ci),
+         avgR_CI = if_else(Organ == "Coarse roots", OrganRecovery, 0)) %>%
+  group_by(across(c("Site", "Round"))) %>%
+  mutate(avgR_CI = if_else(Organ == "FR", cumsum(avgR_CI)+OrganRecovery, OrganRecovery)) %>%
+  group_by(across(c("Site", "Round", "Organ"))) %>%
+  # Plot 
+  ggplot() +
+  geom_col(aes(Round, OrganRecovery, fill = factor(Organ, levels=c("Shoots","Coarse roots","Fine roots"))), position = "stack", color = "black") +
+  scale_fill_viridis_d() +
+  guides(fill = guide_legend(title = "Plant organ")) +
+  theme_classic(base_size = 20)
+#
+#
+# Get Legend 
+OrganRec_legend <- get_legend(OrganRec_plotLegend)
+# Get Plot without legend
+OrganRec_plot.2 <- OrganRec_plot + theme(legend.position = "none")
+#
+# Combine. OBS! Still have to swap colors manually
+grid.arrange(OrganRec_plot.2, OrganRec_legend, ncol = 2, widths = c(2.7, 0.4))
+#
+# The color change could also be done in one figure, but by arranging the legend as separate, it can be moved closer to the graph
+
+
+
+
 #
 #
 #
