@@ -117,7 +117,7 @@ extractions.2 <- extractions.1 %>%
                              Species == "Cor" ~ "COR",
                              Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
                              Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
-                             TRUE ~ Species)) %>%
+                             TRUE ~ Species)) #%>%
   #
   # Ensure the rounds are correct
   # mutate(MP = case_when(Species == "LOI" & MP == 64 ~ "6", # No space between MP and replicate messed up split
@@ -270,7 +270,97 @@ write_csv(IRMS_all.export, "export/GardenExperiment1_EA_IRMS.csv", na = "NA")
 
 
 
+# Duplicates
+# Find them on the plate (have to run all the same code as above)
 
+x <- IRMS_all %>%
+  # Remove the blank lines
+  filter(!is.na(Identifier)) %>%
+  #
+  # Unify weight in same unit (µg) and in the same column
+  mutate(weight_µg = case_when(!is.na(`Weight (µg)`) & is.na(`Weight (mg)`) & is.na(Weight) ~ `Weight (µg)`,
+                               is.na(`Weight (µg)`) & !is.na(`Weight (mg)`) & is.na(Weight) & `Weight (mg)` <= 100 ~ `Weight (mg)`*1000,
+                               is.na(`Weight (µg)`) & !is.na(`Weight (mg)`) & is.na(Weight) & `Weight (mg)` >= 100 ~ `Weight (mg)`,
+                               is.na(`Weight (µg)`) & is.na(`Weight (mg)`) & !is.na(Weight) ~ Weight)) %>%
+  relocate(weight_µg, .before = `Sample type`) %>%
+  select(!c(`Sample type`, Analysis, Comments, `Other comments`, ...12, `ωC / %`, `d13C / ‰`, `FC / %`, ...16, `C/N ratio`, `Weight (µg)`, `Weight (mg)`, Weight)) %>%
+  #
+  # Separate ID into Species, MP, Replicate, and Organ
+  mutate(Sample = str_replace_all(Sample, "-", "_")) %>%
+  separate_wider_delim(Sample, delim = " ", names = c("Type", "Organ1"), too_few = "debug", too_many = "debug") %>%
+  separate_wider_delim(Type, delim = "_", names = c("Species", "MP", "Replicate", "Organ"), too_few = "debug", too_many = "debug") %>%
+  # 
+  # Remove samples from winterecology 1
+  filter(Species != "V",
+         Species != "A") %>%
+  mutate(Organ = if_else(is.na(Organ), Organ1, Organ)) %>%
+  select(!c(Type_remainder, Organ1)) %>%
+  #
+  # Rename variables for easier use in R
+  rename("Nconc_pc" = `ωN / %`,
+         "d15N" = `d15N / ‰`,
+         "Atom_pc" = `FN / %`) %>%
+  # Unknown species are unhelpful
+  filter(Species != "Unknown") %>%
+  #
+  # Standardize species names and ensure the right species is given
+  mutate(Species = case_when(Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
+                             Species == "Emp" ~ "EMP",
+                             Species == "Loi" ~ "LOI",
+                             Species == "Vit" ~ "VIT",
+                             Species == "Myr" ~ "MYR",
+                             Species == "Uli" ~ "ULI",
+                             Species == "Sal" ~ "SAL",
+                             Species == "Des" ~ "DES",
+                             Species == "Jun" ~ "JUN",
+                             Species == "Rub" ~ "RUB",
+                             Species == "Cor" ~ "COR",
+                             Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
+                             Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
+                             TRUE ~ Species)) %>%
+  #
+  # Ensure the rounds are correct
+  mutate(MP = case_when(Species == "SAL" & MP == 6 & Replicate == "Ab" ~ "4",
+                        Species == "LOI" & MP == 64 ~ "6", # No space between MP and replicate messed up split
+                        TRUE ~ MP)) %>%
+  # if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
+  #
+  # Ensure the replicates are correct, or at least that there are duplicates
+  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "Ab" ~ "6",
+                               Species == "SOI" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
+                               Species == "SOI" & MP == 3 & Replicate == "5b" ~ NA, # Or 5b?? The other 1-4 exist for CR
+                               Species == "VIT" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
+                               Species == "VIT" & MP == 3 & Replicate == "5b" ~ NA, # Or 2b?? The other 1-4 exist for CR
+                               Species == "VIT" & MP == 4 & Replicate == "2?" ~ NA, # Already exist a 2 for AB
+                               Species == "JUN" & MP == 4 & Replicate == "1a" ~ "1", # Or 1b?? Check powder against other JUN samples!
+                               Species == "JUN" & MP == 4 & Replicate == "1b" ~ NA, # Or 1b?? Check powder against other JUN samples!
+                               Species == "LOI" & MP == 6 & Replicate == "AB" ~ "4", # No space between MP and replicate messed up split
+                               Species == "SAL" & MP == 3 & Replicate == "1" & weight_µg == 5165 ~ "2",
+                               Organ == "FR(2)" ~ NA, # Remove extra (?) fine root sample from ULI_5_3
+                               TRUE ~ Replicate)) %>%
+  #
+  # Standarize name of organ part
+  # Control samples are a mix of belowground organs and should as such simply be called BG
+  mutate(Organ = case_when(Organ == "veg" ~ "AB", # Species == "SAL" & MP == 4 & Replicate == 6 & 
+                           Organ == "Ab" ~ "AB",
+                           Species == "LOI" & MP == 6 & Replicate == 4 & is.na(Organ) ~ "AB", # No space between MP and replicate messed up split
+                           Organ == "FR+CR" ~ "BG",
+                           Organ == "FR+CR+LR" ~ "BG+",
+                           TRUE ~ Organ)) %>%
+  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "6" ~ "5",
+                               TRUE ~ Replicate)) %>%
+  filter(!is.na(Replicate)) %>%
+  rename("species" = Species,
+         "measuringPeriod" = MP,
+         "replicate" = Replicate,
+         "organ" = Organ,
+         "sample_weight" = weight_µg,
+         "nitrogen_content" = Nconc_pc,
+         "delta_nitrogen_15" = d15N,
+         "atom_nitrogen_15" = Atom_pc) %>%
+  group_by(species, measuringPeriod, replicate, organ) %>%
+  filter(n()>1) %>%
+  ungroup()
 
 
 
