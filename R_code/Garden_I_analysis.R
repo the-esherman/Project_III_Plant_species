@@ -38,6 +38,14 @@ SoilAirT <- read_csv("clean_data/GardenExperiment1_EA_SoilairtemperatureVWC_2021
 #
 # 15N data
 IRMS <- read_csv("clean_data/GardenExperiment1_EA_IRMS.csv", col_names = TRUE)
+#
+# Duplicates (Should be cleaned out in the cleaning script)
+x <- IRMS %>%
+  group_by(species, measuringPeriod, replicate, organ) %>%
+  filter(n()>1) %>%
+  ungroup()
+# 17 duplicates
+#
 # Separate control and labelled
 # Control or natural abundance
 IRMS_control <- IRMS %>%
@@ -241,8 +249,7 @@ vegroot15N_total_Plant_sum %>%
 #
 #
 
-vegroot15N %>%
-  distinct()
+
 
 
 # Plant recovery per organ
