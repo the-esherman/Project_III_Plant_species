@@ -95,6 +95,20 @@ extractions.1 <- extractions %>%
                          Raw == "9" ~ "extr39_40_41"))
 #
 #
+# Main points to change:
+# MP4:
+# CAS_4_4/3 -> CAS_4_3
+# VIT_4_4/5 -> VIT_4_5
+# ULI_4_4 -> ULI_4_3
+# ULI_4-6 -> ULI_4_4
+# Soil_4_3 -> Soil_4_4
+# DES_4_3 -> DES_4_5
+
+
+# SAL_4_5 -> SOI_4_5
+# SAL_4_6 -> SAL_4_5
+
+
 extractions.2 <- extractions.1 %>%
   mutate(Sample_code = case_when(Sample_code == "NA" & Plate == "33" & Well == "E3" ~ "Vit_6_2",
                                  Sample_code == "NA" & Plate == "33" & Well == "H4" ~ "Des_6_5",
@@ -103,7 +117,7 @@ extractions.2 <- extractions.1 %>%
   separate_wider_delim(Sample_code, delim = "_", names = c("Species", "MP", "Replicate"), too_few = "debug", too_many = "debug") %>%
   #
   # Standardize species names and ensure the right species is given
-  mutate(Species = case_when(Species == "blank" ~ "Blank",
+  mutate(Species = case_when(Species == "blank" | Species == "Blanc" | Species == "Tap" ~ "Blank",
                              Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
                              Species == "Emp" ~ "EMP",
                              Species == "Loi" ~ "LOI",
@@ -116,8 +130,8 @@ extractions.2 <- extractions.1 %>%
                              Species == "Rub" ~ "RUB",
                              Species == "Cor" ~ "COR",
                              Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
-                             Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
-                             TRUE ~ Species)) #%>%
+                             Species == "SAL" & MP == "4" & Replicate == "5" ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
+                             TRUE ~ Species)) %>%
   #
   # Ensure the rounds are correct
   # mutate(MP = case_when(Species == "LOI" & MP == 64 ~ "6", # No space between MP and replicate messed up split
@@ -125,20 +139,11 @@ extractions.2 <- extractions.1 %>%
   # if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
   #
   # Ensure the replicates are correct, or at least that there are duplicates
-  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "Ab" ~ "6",
-                               Species == "SOI" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
-                               Species == "SOI" & MP == 3 & Replicate == "5b" ~ NA, # Or 5b?? The other 1-4 exist for CR
-                               Species == "VIT" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
-                               Species == "VIT" & MP == 3 & Replicate == "5b" ~ NA, # Or 2b?? The other 1-4 exist for CR
-                               Species == "VIT" & MP == 4 & Replicate == "2?" ~ NA, # Already exist a 2 for AB
-                               Species == "JUN" & MP == 4 & Replicate == "1a" ~ "1", # Or 1b?? Check powder against other JUN samples!
-                               Species == "JUN" & MP == 4 & Replicate == "1b" ~ NA, # Or 1b?? Check powder against other JUN samples!
-                               Species == "LOI" & MP == 6 & Replicate == "AB" ~ "4", # No space between MP and replicate messed up split
-                               Species == "SAL" & MP == 3 & Replicate == "1" & weight_µg == 5165 ~ "2",
-                               Organ == "FR(2)" ~ NA, # Remove extra (?) fine root sample from ULI_5_3
-                               TRUE ~ Replicate)) %>%
+  mutate(Replicate = case_when(Species == "ULI" & MP == "4" & Replicate == "6" ~ "3", # Per note in ID file
+                               Species == "SAL" & MP == "4" & Replicate == "6" ~ "5",
+                               TRUE ~ Replicate)) #%>%
   #
-  # Standarize name of organ part
+  # Standardize name of organ part
   # Control samples are a mix of belowground organs and should as such simply be called BG
   mutate(Organ = case_when(Organ == "veg" ~ "AB", # Species == "SAL" & MP == 4 & Replicate == 6 & 
                            Organ == "Ab" ~ "AB",
@@ -149,6 +154,42 @@ extractions.2 <- extractions.1 %>%
   mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "6" ~ "5",
                                TRUE ~ Replicate)) %>%
   filter(!is.na(Replicate))
+
+# Explore data
+extractions.2 %>%
+  ggplot(aes(x = Replicate)) + geom_bar() + facet_wrap(~Species)
+
+extractions.2 %>%
+  ggplot(aes(x = MP)) + geom_bar() + facet_wrap(~Species)
+
+
+y1 <- extractions.2 %>%
+  filter(Species != "Blank" & Species != "Blanc" & Species != "Tap") %>%
+  filter(MP != "C") %>%
+  filter(Replicate != "8" & Replicate != "7") %>%
+  select(3:7, SE_or_SEF, N15) %>%
+  complete(Species, MP, Replicate, SE_or_SEF) %>%
+  filter(is.na(Plate))
+
+y2 <- extractions.2 %>%
+  filter(Species != "Blank" & Species != "Blanc" & Species != "Tap") %>%
+  filter(MP != "C") %>%
+  filter(Replicate != "8" & Replicate != "7") %>%
+  select(3:7, SE_or_SEF, N15) %>%
+  complete(Species, MP, Replicate, SE_or_SEF) %>%
+  filter(!is.na(Plate))
+
+# Max samples that there should be:
+# Given 12 "species", 5 replicates of each, 6 MPs, and 2 extraction types:
+12*5*6*2
+# 720
+
+
+# Duplicates (Should be cleaned out in the cleaning script)
+y2.1 <- y2 %>%
+  group_by(Species, MP, Replicate, SE_or_SEF) %>%
+  filter(n()>1) %>%
+  ungroup()
 
 
 #
