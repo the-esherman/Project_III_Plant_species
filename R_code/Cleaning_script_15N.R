@@ -65,7 +65,57 @@ IRMS_all.1 <- IRMS_all %>%
                                is.na(`Weight (µg)`) & !is.na(`Weight (mg)`) & is.na(Weight) & `Weight (mg)` >= 100 ~ `Weight (mg)`,
                                is.na(`Weight (µg)`) & is.na(`Weight (mg)`) & !is.na(Weight) ~ Weight)) %>%
   relocate(weight_µg, .before = `Sample type`) %>%
-  select(!c(Plate, Well, `Sample type`, Analysis, Comments, `Other comments`, ...12, `ωC / %`, `d13C / ‰`, `FC / %`, ...16, `C/N ratio`, `Weight (µg)`, `Weight (mg)`, Weight)) %>%
+  #
+  # Known mistakes:
+  # SOI_6_5_CR in plate 31 well D8 is SOI_6_2_CR
+  # SOI_3_4_FR in plate 27 well G3 is SOI_1_4_FR
+  # COR_1_5_LR in plate 30 well E8 is COR_5_1_LR
+  # VIT_6_4_AB in plate 38 well F11 is most likely VIT_6_4_SLA
+  # VIT_6_5_AB in plate 38 well F12 is most likely VIT_6_5_SLA
+  # JUN_6_4_AB in plate 38 well F9 is most likely JUN_6_4_SLA
+  # EMP_1_2_CR in plate 34 well B12 is most likely something from Abisko/Vassijaure
+  #
+  #
+  mutate(Sample = case_when(Plate == "31" & Well == "D8" ~ "SOI_6_2_CR",
+                            Plate == "27" & Well == "G3" ~ "SOI_1_4_FR",
+                            Plate == "30" & Well == "E8" ~ "COR_5_1_LR",
+                            Plate == "38" & Well == "F11" ~ "VIT_6_4_SLA",
+                            Plate == "38" & Well == "F12" ~ "VIT_6_5_SLA",
+                            Plate == "38" & Well == "F9" ~ "JUN_6_4_SLA",
+                            Plate == "34" & Well == "B12" ~ "A_something_CR",
+                            TRUE ~ Sample)) %>%
+  #
+  # The following samples have almost equal enrichment.
+  # Create unique identifier from plate and well
+  mutate(plateWell = paste(Plate, Well, sep = "_")) %>%
+  #
+  # Duplicate the duplicates
+  # mutate(plateWell = case_when(Plate == "38" & Well == "B12" ~ "30_G9", # CAS_5_1_CR
+  #                              Plate == "38" & Well == "B5" ~ "30_G8", # COR_5_5_CR
+  #                              Plate == "38" & Well == "B3" ~ "30_E5", # MYR_5_5_CR
+  #                              Plate == "RE1" & Well == "A7" ~ "31_B4", # VIT_6_1_CR
+  #                              Plate == "RE1" & Well == "A8" ~ "31_B5", # VIT_6_2_CR
+  #                              Plate == "RE1" & Well == "A10" ~ "31_B6", # VIT_6_5_CR
+  #                              Plate == "37" & Well == "D4" ~ "31_E11", # DES_6_3_FR
+  #                              Plate == "37" & Well == "D7" ~ "31_F1", # JUN_6_1_FR
+  #                              Plate == "37" & Well == "D9" ~ "31_E12", # JUN_6_3_FR
+  #                              Plate == "37" & Well == "F2" ~ "31_F2", # SOI_6_5_FR
+  #                              TRUE ~ plateWell)) %>%
+  # Or remove the second values
+  mutate(plateWell = case_when(Plate == "38" & Well == "B12" ~ NA, # CAS_5_1_CR
+                               Plate == "38" & Well == "B5" ~ NA, # COR_5_5_CR
+                               Plate == "38" & Well == "B3" ~ NA, # MYR_5_5_CR
+                               Plate == "RE1" & Well == "A7" ~ NA, # VIT_6_1_CR
+                               Plate == "RE1" & Well == "A8" ~ NA, # VIT_6_2_CR
+                               Plate == "RE1" & Well == "A10" ~ NA, # VIT_6_5_CR
+                               Plate == "37" & Well == "D4" ~ NA, # DES_6_3_FR
+                               Plate == "37" & Well == "D7" ~ NA, # JUN_6_1_FR
+                               Plate == "37" & Well == "D9" ~ NA, # JUN_6_3_FR
+                               Plate == "37" & Well == "F2" ~ NA, # SOI_6_5_FR
+                               TRUE ~ plateWell)) %>%
+  filter(!is.na(plateWell)) %>%
+  #
+  select(!c(`Sample type`, Analysis, Comments, `Other comments`, ...12, `ωC / %`, `d13C / ‰`, `FC / %`, ...16, `C/N ratio`, `Weight (µg)`, `Weight (mg)`, Weight)) %>%
   #
   # Separate ID into Species, MP, Replicate, and Organ
   mutate(Sample = str_replace_all(Sample, "-", "_")) %>%
@@ -84,6 +134,9 @@ IRMS_all.1 <- IRMS_all %>%
          "Atom_pc" = `FN / %`)
 #
 # Go through cases to clean mistakes and unify naming scheme
+#
+
+#
 IRMS_all.2 <- IRMS_all.1 %>%
   # Unknown species are unhelpful
   filter(Species != "Unknown") %>%
@@ -163,6 +216,10 @@ IRMS_all.export <- bind_rows(IRMS_all.export.samples, IRMS_all.export.control) %
          "delta_nitrogen_15" = d15N,
          "atom_nitrogen_15" = Atom_pc)
 #
+# !!!
+1
+# !!!
+#
 # Save as CSV
 write_csv(IRMS_all.export, "export/GardenExperiment1_EA_IRMS.csv", na = "NA")
 
@@ -181,6 +238,56 @@ x <- IRMS_all %>%
                                is.na(`Weight (µg)`) & !is.na(`Weight (mg)`) & is.na(Weight) & `Weight (mg)` >= 100 ~ `Weight (mg)`,
                                is.na(`Weight (µg)`) & is.na(`Weight (mg)`) & !is.na(Weight) ~ Weight)) %>%
   relocate(weight_µg, .before = `Sample type`) %>%
+  #
+  # Known mistakes:
+  # SOI_6_5_CR in plate 31 well D8 is SOI_6_2_CR
+  # SOI_3_4_FR in plate 27 well G3 is SOI_1_4_FR
+  # COR_1_5_LR in plate 30 well E8 is COR_5_1_LR
+  # VIT_6_4_AB in plate 38 well F11 is most likely VIT_6_4_SLA
+  # VIT_6_5_AB in plate 38 well F12 is most likely VIT_6_5_SLA
+  # JUN_6_4_AB in plate 38 well F9 is most likely JUN_6_4_SLA
+  # EMP_1_2_CR in plate 34 well B12 is most likely something from Abisko/Vassijaure
+  #
+  #
+  mutate(Sample = case_when(Plate == "31" & Well == "D8" ~ "SOI_6_2_CR",
+                            Plate == "27" & Well == "G3" ~ "SOI_1_4_FR",
+                            Plate == "30" & Well == "E8" ~ "COR_5_1_LR",
+                            Plate == "38" & Well == "F11" ~ "VIT_6_4_SLA",
+                            Plate == "38" & Well == "F12" ~ "VIT_6_5_SLA",
+                            Plate == "38" & Well == "F9" ~ "JUN_6_4_SLA",
+                            Plate == "34" & Well == "B12" ~ "A_something_CR",
+                            TRUE ~ Sample)) %>%
+  #
+  # The following samples have almost equal enrichment.
+  # Create unique identifier from plate and well
+  mutate(plateWell = paste(Plate, Well, sep = "_")) %>%
+  #
+  # Duplicate the duplicates
+  # mutate(plateWell = case_when(Plate == "38" & Well == "B12" ~ "30_G9", # CAS_5_1_CR
+  #                              Plate == "38" & Well == "B5" ~ "30_G8", # COR_5_5_CR
+  #                              Plate == "38" & Well == "B3" ~ "30_E5", # MYR_5_5_CR
+  #                              Plate == "RE1" & Well == "A7" ~ "31_B4", # VIT_6_1_CR
+  #                              Plate == "RE1" & Well == "A8" ~ "31_B5", # VIT_6_2_CR
+  #                              Plate == "RE1" & Well == "A10" ~ "31_B6", # VIT_6_5_CR
+  #                              Plate == "37" & Well == "D4" ~ "31_E11", # DES_6_3_FR
+  #                              Plate == "37" & Well == "D7" ~ "31_F1", # JUN_6_1_FR
+  #                              Plate == "37" & Well == "D9" ~ "31_E12", # JUN_6_3_FR
+  #                              Plate == "37" & Well == "F2" ~ "31_F2", # SOI_6_5_FR
+  #                              TRUE ~ plateWell)) %>%
+  # Or remove the second values
+  mutate(plateWell = case_when(Plate == "38" & Well == "B12" ~ NA, # CAS_5_1_CR
+                               Plate == "38" & Well == "B5" ~ NA, # COR_5_5_CR
+                               Plate == "38" & Well == "B3" ~ NA, # MYR_5_5_CR
+                               Plate == "RE1" & Well == "A7" ~ NA, # VIT_6_1_CR
+                               Plate == "RE1" & Well == "A8" ~ NA, # VIT_6_2_CR
+                               Plate == "RE1" & Well == "A10" ~ NA, # VIT_6_5_CR
+                               Plate == "37" & Well == "D4" ~ NA, # DES_6_3_FR
+                               Plate == "37" & Well == "D7" ~ NA, # JUN_6_1_FR
+                               Plate == "37" & Well == "D9" ~ NA, # JUN_6_3_FR
+                               Plate == "37" & Well == "F2" ~ NA, # SOI_6_5_FR
+                               TRUE ~ plateWell)) %>%
+  filter(!is.na(plateWell)) %>%
+  #
   select(!c(`Sample type`, Analysis, Comments, `Other comments`, ...12, `ωC / %`, `d13C / ‰`, `FC / %`, ...16, `C/N ratio`, `Weight (µg)`, `Weight (mg)`, Weight)) %>%
   #
   # Separate ID into Species, MP, Replicate, and Organ
@@ -256,6 +363,17 @@ x <- IRMS_all %>%
          "nitrogen_content" = Nconc_pc,
          "delta_nitrogen_15" = d15N,
          "atom_nitrogen_15" = Atom_pc) %>%
+  #
+  # One way of solving duplicates is to simply average. This works if their values are almost the same
+  # group_by(plateWell) %>%
+  # summarise(sample_weight = mean(sample_weight),
+  #           nitrogen_content = mean(nitrogen_content),
+  #           delta_nitrogen_15 = mean(delta_nitrogen_15),
+  #           atom_nitrogen_15 = mean(atom_nitrogen_15),
+  #           .groups = "keep") %>%
+  # ungroup() %>%
+  #
+  # Here the duplicate checking starts
   group_by(species, measuringPeriod, replicate, organ) %>%
   filter(n()>1) %>%
   ungroup()
@@ -330,19 +448,19 @@ biomass.control.1 <- biomass.control %>%
 
 
 # Samples where there is enough biomass, but no measurements
-x <- left_join(IRMS_all.export, biomass.1, by = join_by(Species, MP, Replicate, Organ)) %>%
+x1 <- left_join(IRMS_all.export.samples, biomass.1, by = join_by(Species, MP, Replicate, Organ)) %>%
   filter(is.na(weight_µg) & !is.na(Biomass_g)) %>%
   filter(Biomass_g >= 0.5)
 
 
-y <- x %>%
+y <- x1 %>%
   select(1:4, Biomass_g)
 
-xx <- left_join(IRMS_all.export.control, biomass.control.1, by = join_by(Species, MP, Replicate, Organ)) %>%
+x1c <- left_join(IRMS_all.export.control, biomass.control.1, by = join_by(Species, MP, Replicate, Organ)) %>%
   filter(is.na(weight_µg) & !is.na(Biomass_g)) %>%
   filter(Biomass_g >= 0.5)
 
-yy <- xx %>%
+yy <- x1c %>%
   select(1:4, Biomass_g)
 
 
