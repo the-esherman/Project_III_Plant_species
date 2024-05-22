@@ -4,14 +4,15 @@
 # Cleaning 15N data
 # 15N data from plant samples and 15N data from soil extractions
 #
-#------- ### Libraries ### -------
+#=======  ♣   Libraries     ♣ =======
 library(plotly)
 library(tidyverse)
 library(readxl)
 #
 #
 #
-#------- ### Load data ### -------
+#=======  ♠   IRMS data     ♠ =======
+#-------  •   Load data     • -------
 #
 # Load IRMS data in one long list and combine
 IRMS_path <- "raw_data/IRMS/"
@@ -51,151 +52,7 @@ IRMS_all <- do.call(bind_rows, IRMS_list)
 #
 #
 #
-# ------- # Extractions # -------
-#
-# Extraction data is all in the same format
-extr_header <- c("Sample_nr", "Plate", "Well", "Sample_code", "SE_or_SEF", "Comments", "c1", "c2", "c3", "c4", 
-                 "c5", "c6", "c7", "H2O", "Freeze_dry_ml", "Freeze_dry2", "Soil_FW_g", "Soil_DW_g", "SW_ml", "Sample_number", 
-                 "Name", "Height_N_nA", "N15", "Height_C_nA", "C13", "Weight", "PEAnA_N", "PEA15N", "PEAnA_C", "PEA13C", 
-                 "gnsnSTD_N_weight", "gnsnSTD_C_weight", "1nA_to_mgN_STD", "1nA_to_mgC", "Sample_N_mg", "Sample_C_mg", "Extr_N_mg", "Extr_C_mg", "Soil_N_IRMS", "Soil_C_IRMS", 
-                 "%N_peach", "%C_peach", "C_N_ratio", "d15N_korr", "AP_NatAbu_15N", "AP_15N", "APE_N", "c8", "Soil_15N", "15N_in_N", 
-                 "d13C_korr")
-extr_type <- c("numeric", "text", "text", "text", "text", "text", "text", "text", "text", "text", 
-               "text", "text", "text", "text", "text", "text", "text", "text", "text", "numeric", 
-               "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
-               "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
-               "numeric","numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
-               "numeric")
-#
-# Load extraction files
-Extr_32 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray32_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
-Extr_33 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray33_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
-Extr_34 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray34_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
-Extr_35 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray35_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
-Extr_36 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray36_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
-Extr_37 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray37_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
-Extr_38 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray38_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
-Extr_39_40_41 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray39_40_41_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
-#
-# Combine extraction datasets
-extractions <- bind_rows(list(Extr_32, Extr_33, Extr_34, Extr_35, Extr_36, Extr_37, Extr_38, Extr_39_40_41), .id = "Raw")
-
-#
-# Remove unnecessary columns and rows
-extractions.1 <- extractions %>%
-  select(1:6, 23:37) %>%
-  filter(!is.na(Sample_nr)) %>%
-  mutate(Raw = case_when(Raw == "1" ~ "extr32",
-                         Raw == "2" ~ "extr33",
-                         Raw == "3" ~ "extr34",
-                         Raw == "4" ~ "extr35",
-                         Raw == "5" ~ "extr36",
-                         Raw == "6" ~ "extr37",
-                         Raw == "7" ~ "extr38",
-                         Raw == "9" ~ "extr39_40_41"))
-#
-#
-# Main points to change:
-# MP4:
-# CAS_4_4/3 -> CAS_4_3
-# VIT_4_4/5 -> VIT_4_5
-# ULI_4_4 -> ULI_4_3
-# ULI_4-6 -> ULI_4_4
-# Soil_4_3 -> Soil_4_4
-# DES_4_3 -> DES_4_5
-
-
-# SAL_4_5 -> SOI_4_5
-# SAL_4_6 -> SAL_4_5
-
-
-extractions.2 <- extractions.1 %>%
-  mutate(Sample_code = case_when(Sample_code == "NA" & Plate == "33" & Well == "E3" ~ "Vit_6_2",
-                                 Sample_code == "NA" & Plate == "33" & Well == "H4" ~ "Des_6_5",
-                                 TRUE ~ Sample_code)) %>%
-  mutate(Sample_code = str_replace_all(Sample_code, "-|\\.", "_")) %>%
-  separate_wider_delim(Sample_code, delim = "_", names = c("Species", "MP", "Replicate"), too_few = "debug", too_many = "debug") %>%
-  #
-  # Standardize species names and ensure the right species is given
-  mutate(Species = case_when(Species == "blank" | Species == "Blanc" | Species == "Tap" ~ "Blank",
-                             Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
-                             Species == "Emp" ~ "EMP",
-                             Species == "Loi" ~ "LOI",
-                             Species == "Vit" ~ "VIT",
-                             Species == "Myr" ~ "MYR",
-                             Species == "Uli" ~ "ULI",
-                             Species == "Sal" ~ "SAL",
-                             Species == "Des" ~ "DES",
-                             Species == "Jun" ~ "JUN",
-                             Species == "Rub" ~ "RUB",
-                             Species == "Cor" ~ "COR",
-                             Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
-                             Species == "SAL" & MP == "4" & Replicate == "5" ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
-                             TRUE ~ Species)) %>%
-  #
-  # Ensure the rounds are correct
-  # mutate(MP = case_when(Species == "LOI" & MP == 64 ~ "6", # No space between MP and replicate messed up split
-  #                       TRUE ~ MP)) %>%
-  # if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
-  #
-  # Ensure the replicates are correct, or at least that there are duplicates
-  mutate(Replicate = case_when(Species == "ULI" & MP == "4" & Replicate == "6" ~ "3", # Per note in ID file
-                               Species == "SAL" & MP == "4" & Replicate == "6" ~ "5",
-                               TRUE ~ Replicate)) #%>%
-  #
-  # Standardize name of organ part
-  # Control samples are a mix of belowground organs and should as such simply be called BG
-  mutate(Organ = case_when(Organ == "veg" ~ "AB", # Species == "SAL" & MP == 4 & Replicate == 6 & 
-                           Organ == "Ab" ~ "AB",
-                           Species == "LOI" & MP == 6 & Replicate == 4 & is.na(Organ) ~ "AB", # No space between MP and replicate messed up split
-                           Organ == "FR+CR" ~ "BG",
-                           Organ == "FR+CR+LR" ~ "BG+",
-                           TRUE ~ Organ)) %>%
-  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "6" ~ "5",
-                               TRUE ~ Replicate)) %>%
-  filter(!is.na(Replicate))
-
-# Explore data
-extractions.2 %>%
-  ggplot(aes(x = Replicate)) + geom_bar() + facet_wrap(~Species)
-
-extractions.2 %>%
-  ggplot(aes(x = MP)) + geom_bar() + facet_wrap(~Species)
-
-
-y1 <- extractions.2 %>%
-  filter(Species != "Blank" & Species != "Blanc" & Species != "Tap") %>%
-  filter(MP != "C") %>%
-  filter(Replicate != "8" & Replicate != "7") %>%
-  select(3:7, SE_or_SEF, N15) %>%
-  complete(Species, MP, Replicate, SE_or_SEF) %>%
-  filter(is.na(Plate))
-
-y2 <- extractions.2 %>%
-  filter(Species != "Blank" & Species != "Blanc" & Species != "Tap") %>%
-  filter(MP != "C") %>%
-  filter(Replicate != "8" & Replicate != "7") %>%
-  select(3:7, SE_or_SEF, N15) %>%
-  complete(Species, MP, Replicate, SE_or_SEF) %>%
-  filter(!is.na(Plate))
-
-# Max samples that there should be:
-# Given 12 "species", 5 replicates of each, 6 MPs, and 2 extraction types:
-12*5*6*2
-# 720
-
-
-# Duplicates (Should be cleaned out in the cleaning script)
-y2.1 <- y2 %>%
-  group_by(Species, MP, Replicate, SE_or_SEF) %>%
-  filter(n()>1) %>%
-  ungroup()
-
-
-#
-#
-#
-#------- ## Combine and clean ## -------
+#-------  •   Clean data    • -------
 #
 # Clean naming to standard
 IRMS_all.1 <- IRMS_all %>%
@@ -251,7 +108,7 @@ IRMS_all.2 <- IRMS_all.1 %>%
   mutate(MP = case_when(Species == "SAL" & MP == 6 & Replicate == "Ab" ~ "4",
                         Species == "LOI" & MP == 64 ~ "6", # No space between MP and replicate messed up split
                         TRUE ~ MP)) %>%
-          # if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
+  # if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
   #
   # Ensure the replicates are correct, or at least that there are duplicates
   mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "Ab" ~ "6",
@@ -417,8 +274,7 @@ IRMS_all.2 %>%
 
 
 
-
-
+# Combine with biomass to find potentially missing samples
 
 
 biomass <- read_xlsx("raw_data/GardenExperiment1_EA_DryWeights_202204-202308.xlsx", col_names = TRUE, na = "NA")
@@ -501,45 +357,81 @@ yy %>%
 
 write_csv2(y, "export/Missing_15N_2.csv", na = "NA")
 write_csv2(yy, "export/Missing_15N_control_2.csv", na = "NA")
-
 #
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #
-Isotope15N.1 <- Isotope15N.0 %>%
-  mutate(Sample = str_replace_all(Sample, "-", "_")) %>%
-  separate_wider_delim(Sample, delim = " ", names = c("Type", "Organ1"), too_few = "debug", too_many = "debug") %>%
-  separate_wider_delim(Type, delim = "_", names = c("Species", "MP", "Replicate", "Organ"), too_few = "debug", too_many = "debug") %>%
-  filter(Species != "V",
-         Species != "A") %>%
-  mutate(Organ = if_else(is.na(Organ), Organ1, Organ)) %>%
-  select(!c(Type_remainder, Organ1))
 #
-Isotope15N.2 <- Isotope15N.1 %>%
-  filter(Species != "Unknown") %>%
-  mutate(Species = case_when(Species == "Cass" | Species == "Cas" ~ "CAS",
+#=======  ♦   Extractions   ♦ =======
+#-------  •   Load data     • -------
+#
+# Extraction data is all in the same format
+extr_header <- c("Sample_nr", "Plate", "Well", "Sample_code", "SE_or_SEF", "Comments", "c1", "c2", "c3", "c4", 
+                 "c5", "c6", "c7", "H2O", "Freeze_dry_ml", "Freeze_dry2", "Soil_FW_g", "Soil_DW_g", "SW_ml", "Sample_number", 
+                 "Name", "Height_N_nA", "N15", "Height_C_nA", "C13", "Weight", "PEAnA_N", "PEA15N", "PEAnA_C", "PEA13C", 
+                 "gnsnSTD_N_weight", "gnsnSTD_C_weight", "1nA_to_mgN_STD", "1nA_to_mgC", "Sample_N_mg", "Sample_C_mg", "Extr_N_mg", "Extr_C_mg", "Soil_N_IRMS", "Soil_C_IRMS", 
+                 "%N_peach", "%C_peach", "C_N_ratio", "d15N_korr", "AP_NatAbu_15N", "AP_15N", "APE_N", "c8", "Soil_15N", "15N_in_N", 
+                 "d13C_korr")
+extr_type <- c("numeric", "text", "text", "text", "text", "text", "text", "text", "text", "text", 
+               "text", "text", "text", "text", "text", "text", "text", "text", "text", "numeric", 
+               "text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+               "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+               "numeric","numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+               "numeric")
+#
+# Load extraction files
+Extr_32 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray32_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_33 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray33_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_34 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray34_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_35 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray35_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_36 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray36_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_37 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray37_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_38 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray38_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+Extr_39_40_41 <- read_xlsx("raw_data/Extractions/EmilExtr2023_Tray39_40_41_FINAL.xlsx", sheet = "Emil2023", col_names = extr_header, skip = 2, col_types = extr_type)
+#
+# Combine extraction datasets
+extractions <- bind_rows(list(Extr_32, Extr_33, Extr_34, Extr_35, Extr_36, Extr_37, Extr_38, Extr_39_40_41), .id = "Raw")
+#
+#
+#
+#-------  •   Clean data    • -------
+#
+# Remove unnecessary columns and rows
+extractions.1 <- extractions %>%
+  select(1:6, 23:37) %>%
+  filter(!is.na(Sample_nr)) %>%
+  mutate(Raw = case_when(Raw == "1" ~ "extr32",
+                         Raw == "2" ~ "extr33",
+                         Raw == "3" ~ "extr34",
+                         Raw == "4" ~ "extr35",
+                         Raw == "5" ~ "extr36",
+                         Raw == "6" ~ "extr37",
+                         Raw == "7" ~ "extr38",
+                         Raw == "9" ~ "extr39_40_41"))
+#
+#
+# Main points to change:
+# MP4:
+# CAS_4_4/3 -> CAS_4_3
+# VIT_4_4/5 -> VIT_4_5
+# ULI_4_4 -> ULI_4_3
+# ULI_4-6 -> ULI_4_4
+# Soil_4_3 -> Soil_4_4
+# DES_4_3 -> DES_4_5
+
+
+# SAL_4_5 -> SOI_4_5
+# SAL_4_6 -> SAL_4_5
+
+
+extractions.2 <- extractions.1 %>%
+  mutate(Sample_code = case_when(Sample_code == "NA" & Plate == "33" & Well == "E3" ~ "Vit_6_2",
+                                 Sample_code == "NA" & Plate == "33" & Well == "H4" ~ "Des_6_5",
+                                 TRUE ~ Sample_code)) %>%
+  mutate(Sample_code = str_replace_all(Sample_code, "-|\\.", "_")) %>%
+  separate_wider_delim(Sample_code, delim = "_", names = c("Species", "MP", "Replicate"), too_few = "debug", too_many = "debug") %>%
+  #
+  # Standardize species names and ensure the right species is given
+  mutate(Species = case_when(Species == "blank" | Species == "Blanc" | Species == "Tap" ~ "Blank",
+                             Species == "Cass" | Species == "CASS" | Species == "Cas" ~ "CAS",
                              Species == "Emp" ~ "EMP",
                              Species == "Loi" ~ "LOI",
                              Species == "Vit" ~ "VIT",
@@ -551,60 +443,70 @@ Isotope15N.2 <- Isotope15N.1 %>%
                              Species == "Rub" ~ "RUB",
                              Species == "Cor" ~ "COR",
                              Species == "Soil" | Species == "soil" | Species == "SOIL" ~ "SOI",
-                             Species == "SAL" & MP == 4 & Replicate == 5 ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
+                             Species == "SAL" & MP == "4" & Replicate == "5" ~ "SOI", # Special case of mix-up. SAL_4_5 => SOI_4_5, while SAL_4_6 => SAL_4_5
                              TRUE ~ Species)) %>%
-  mutate(MP = if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
-  mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "Ab" ~ "6",
-                               Species == "SOI" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
-                               Species == "SOI" & MP == 3 & Replicate == "5b" ~ NA, # Or 5b?? The other 1-4 exist for CR
-                               Species == "VIT" & MP == 3 & Replicate == "5a" ~ "5", # Or 5b?? The other 1-4 exist for CR
-                               Species == "VIT" & MP == 3 & Replicate == "5b" ~ NA, # Or 2b?? The other 1-4 exist for CR
-                               Species == "VIT" & MP == 4 & Replicate == "2?" ~ NA, # Already exist a 2 for AB
-                               Species == "JUN" & MP == 4 & Replicate == "1a" ~ "1", # Or 1b?? Check powder against other JUN samples!
-                               Species == "JUN" & MP == 4 & Replicate == "1b" ~ NA, # Or 1b?? Check powder against other JUN samples!
-                               TRUE ~ Replicate)) %>%
+  #
+  # Ensure the rounds are correct
+  # mutate(MP = case_when(Species == "LOI" & MP == 64 ~ "6", # No space between MP and replicate messed up split
+  #                       TRUE ~ MP)) %>%
+  # if_else(Species == "SAL" & MP == 6 & Replicate == "Ab", "4", MP)) %>%
+  #
+  # Ensure the replicates are correct, or at least that there are duplicates
+  mutate(Replicate = case_when(Species == "ULI" & MP == "4" & Replicate == "6" ~ "3", # Per note in ID file
+                               Species == "SAL" & MP == "4" & Replicate == "6" ~ "5",
+                               TRUE ~ Replicate)) #%>%
+  #
+  # Standardize name of organ part
+  # Control samples are a mix of belowground organs and should as such simply be called BG
   mutate(Organ = case_when(Organ == "veg" ~ "AB", # Species == "SAL" & MP == 4 & Replicate == 6 & 
                            Organ == "Ab" ~ "AB",
+                           Species == "LOI" & MP == 6 & Replicate == 4 & is.na(Organ) ~ "AB", # No space between MP and replicate messed up split
+                           Organ == "FR+CR" ~ "BG",
+                           Organ == "FR+CR+LR" ~ "BG+",
                            TRUE ~ Organ)) %>%
   mutate(Replicate = case_when(Species == "SAL" & MP == 4 & Replicate == "6" ~ "5",
                                TRUE ~ Replicate)) %>%
-  filter(!is.na(Replicate)) %>%
-  mutate(Weight_µg = if_else(is.na(`Weight (mg)`), if_else(is.na(`Weight (µg)`), `Weight`, `Weight (µg)`), `Weight (mg)`))
-# Other cases:
-# VIT_1_3 CR or SOI_1_1 CR?
+  filter(!is.na(Replicate))
+
+# Explore data
+extractions.2 %>%
+  ggplot(aes(x = Replicate)) + geom_bar() + facet_wrap(~Species)
+
+extractions.2 %>%
+  ggplot(aes(x = MP)) + geom_bar() + facet_wrap(~Species)
+
+
+y1 <- extractions.2 %>%
+  filter(Species != "Blank" & Species != "Blanc" & Species != "Tap") %>%
+  filter(MP != "C") %>%
+  filter(Replicate != "8" & Replicate != "7") %>%
+  select(3:7, SE_or_SEF, N15) %>%
+  complete(Species, MP, Replicate, SE_or_SEF) %>%
+  filter(is.na(Plate))
+
+y2 <- extractions.2 %>%
+  filter(Species != "Blank" & Species != "Blanc" & Species != "Tap") %>%
+  filter(MP != "C") %>%
+  filter(Replicate != "8" & Replicate != "7") %>%
+  select(3:7, SE_or_SEF, N15) %>%
+  complete(Species, MP, Replicate, SE_or_SEF) %>%
+  filter(!is.na(Plate))
+
+# Max samples that there should be:
+# Given 12 "species", 5 replicates of each, 6 MPs, and 2 extraction types:
+12*5*6*2
+# 720
+
+
+# Duplicates (Should be cleaned out in the cleaning script)
+y2.1 <- y2 %>%
+  group_by(Species, MP, Replicate, SE_or_SEF) %>%
+  filter(n()>1) %>%
+  ungroup()
 #
-Isotope15N.3 <- Isotope15N.2 %>%
-  select(Species, MP, Replicate, Organ, Weight_µg, `ωN / %`, `d15N / ‰`, `FN / %`) %>%
-  rename("Nconc_pc" = `ωN / %`,
-         "d15N" = `d15N / ‰`,
-         "Atom_pc" = `FN / %`)
 #
-write_csv(Isotope15N.3, "clean_data/Isotope.csv", na = "NA")
-
-
-
 #
-Isotope15N.3 %>%
-  ggplot(aes(x = MP, y = d15N, color = Organ)) + geom_point() + facet_wrap(~Species)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# • Outlier check ----
+#=======  ♪ Outlier check   ♪ =======
 #
 # Fine Roots
 Isotope15N.3 %>%
@@ -656,3 +558,6 @@ plot_ly(Isotope15N.d15N_test, y = ~AB, x = ~MP, name = "Aboveground", type = 'sc
   add_trace(y = ~LR, x = ~MP, name = "Large roots",type = 'scatter', mode = "markers", marker = list(color = "#0072B2")) %>% 
   layout(title = "MP d15N", yaxis = list(title = "d15N"), margin = list(l = 100))
 #
+#
+#
+#=======  ■  { The End }    ■ =======
