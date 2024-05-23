@@ -48,8 +48,12 @@ IRMS_control <- IRMS %>%
 # Labelled
 IRMS_15N <- IRMS %>%
   filter(measuringPeriod != "C")
-
-
+#
+#
+# For graphs:
+measuringTimes <- c("Spring-winter",	"Spring",	"Summer",	"Autumn",	"Autumn-winter",	"Winter")
+measuringTimesSami <- c("Giđđadálvi", "Giđđa", "Geassi", "Čakča", "Čakčadálvi", "Dálvi")
+#
 # Constants
 #
 # Extraction correction factor
@@ -235,11 +239,11 @@ vegroot15N_total_Plant_sum %>%
   #geom_point(aes(Round, plantRecovery)) +
   geom_col(aes(measuringPeriod, plantRecovery), color = "black") +
   coord_cartesian(ylim=c(0,30)) +
-  #scale_x_discrete(labels = measuringPeriod) +
+  scale_x_discrete(labels = measuringTimes) +
   facet_wrap( ~ species, ncol = 4, scales = "free") + 
   labs(x = "Measuring period (MP)", y = expression("% of added "*{}^15*"N"), title = expression("Plant "*{}^15*"N tracer recovery")) +
-  theme_classic(base_size = 20) +
-  theme(panel.spacing = unit(2, "lines"),axis.text.x=element_text(angle=60, hjust=1))
+  theme_classic(base_size = 15) +
+  theme(panel.spacing = unit(2, "lines"),axis.text.x=element_text(angle=60, hjust=1, size = 8))
 #
 #
 
