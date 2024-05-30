@@ -14,5 +14,9 @@ export/*
 # Removed code
 R_code/Removed_code.R
 
+# Code for sharing within project files
+R_code/GardenExperiment1_IRMS_script.R
+R_code/GardenExperiment1_Extractions.R
+
 # Clean data
 clean_data/*
